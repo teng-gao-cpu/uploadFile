@@ -230,6 +230,7 @@
       // 判断环境并执行相应操作
       if (isWechatMiniProgram()) {
         // 微信小程序环境：返回上一页并传递文件信息
+		  console.log(fileInfoList, 'fileInfoListfileInfoList')
         handleMiniProgramUpload(fileInfoList);
       } else {
         // Web环境：打印文件信息

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>文件上传</title>
+  <style>
+    /* 基础样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+    
+    body {
+      background-color: #f9f9f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 400px;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 24px;
+    }
+    
+    /* 标题样式 */
+    .title-area {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    /* 选择模式样式 */
+    .select-mode {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    
+    .mode-option {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    .mode-option input {
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      accent-color: #37C2FF;
+    }
+    
+    .mode-option label {
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+    }
+    
+    /* 上传按钮样式 */
+    .upload-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #37C2FF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+      margin-bottom: 16px;
+    }
+    
+    .upload-btn:hover {
+      background-color: #29b8ff;
+    }
+    
+    .upload-btn:disabled {
+      background-color: #b3e0ff;
+      cursor: not-allowed;
+    }
+    
+    .upload-btn i {
+      margin-right: 8px;
+    }
+    
+    /* 状态消息样式 */
+    .status-message {
+      display: none;
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    
+    .status-success {
+      display: block;
+      background-color: #f0fff4;
+      color: #00b42a;
+      border: 1px solid #b3f0c5;
+    }
+    
+    .status-error {
+      display: block;
+      background-color: #fff0f0;
+      color: #f53f3f;
+      border: 1px solid #ffd2d2;
+    }
+    
+    /* 隐藏的文件输入 */
+    #fileInput {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- 标题区域 -->
+    <div class="title-area">
+      <h1 class="title">文件上传</h1>
+      <p class="subtitle">支持所有类型文件的上传</p>
+    </div>
+    
+    <!-- 选择模式 -->
+    <div class="select-mode">
+      <div class="mode-option">
+        <input type="radio" name="selectMode" id="singleMode" value="single" checked>
+        <label for="singleMode">单个文件</label>
+      </div>
+      <div class="mode-option">
+        <input type="radio" name="selectMode" id="multipleMode" value="multiple">
+        <label for="multipleMode">多个文件</label>
+      </div>
+    </div>
+    
+    <!-- 隐藏的文件输入 -->
+    <input type="file" id="fileInput" accept="*/*">
+    
+    <!-- 上传按钮 -->
+    <button id="uploadBtn" class="upload-btn">
+      <span>📤</span> 选择并上传文件
+    </button>
+    
+    <!-- 状态提示 -->
+    <div id="statusMessage" class="status-message"></div>
+  </div>
+
+  <script>
+    // DOM元素
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const statusMessage = document.getElementById('statusMessage');
+    const singleModeRadio = document.getElementById('singleMode');
+    const multipleModeRadio = document.getElementById('multipleMode');
+    
+    // 检查是否在微信小程序环境
+    function isWechatMiniProgram() {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      return userAgent.includes('miniprogram');
+    }
+    
+    // 更新文件选择模式
+    function updateFileSelectionMode() {
+      const isMultiple = multipleModeRadio.checked;
+      fileInput.multiple = isMultiple;
+    }
+    
+    // 绑定选择模式变更事件
+    singleModeRadio.addEventListener('change', updateFileSelectionMode);
+    multipleModeRadio.addEventListener('change', updateFileSelectionMode);
+    
+    // 点击上传按钮触发文件选择
+    uploadBtn.addEventListener('click', () => {
+      updateFileSelectionMode();
+      fileInput.click();
+    });
+    
+    // 处理选择的文件
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        handleFiles(fileInput.files);
+      }
+    });
+    
+    // 处理文件
+    function handleFiles(files) {
+      // 禁用上传按钮
+      uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '<span>⌛</span> 处理中...';
+      
+      // 转换文件信息为可传输格式
+      const fileInfoList = Array.from(files).map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+        lastModifiedDate: new Date(file.lastModified).toISOString()
+      }));
+      
+      // 显示成功消息
+      statusMessage.textContent = '文件处理完成';
+      statusMessage.className = 'status-message status-success';
+      
+      // 判断环境并执行相应操作
+      if (isWechatMiniProgram()) {
+        // 微信小程序环境：返回上一页并传递文件信息
+        handleMiniProgramUpload(fileInfoList);
+      } else {
+        // Web环境：打印文件信息
+        handleWebUpload(fileInfoList);
+      }
+    }
+    
+    // 处理小程序环境下的上传
+    function handleMiniProgramUpload(fileInfoList) {
+      // 延迟处理，让用户看到状态提示
+      setTimeout(() => {
+        try {
+          // 向小程序发送消息
+          if (window.wx && wx.miniProgram) {
+            wx.miniProgram.postMessage({
+              data: {
+                type: 'fileUploadComplete',
+                files: fileInfoList
+              }
+            });
+            
+            // 返回上一页
+            wx.miniProgram.navigateBack({
+              delta: 1
+            });
+          } else {
+            // 兼容处理
+            history.back();
+          }
+        } catch (e) {
+          console.error('小程序通信失败:', e);
+          statusMessage.textContent = '处理失败，请重试';
+          statusMessage.className = 'status-message status-error';
+          resetUploadButton();
+        }
+      }, 800);
+    }
+    
+    // 处理Web环境下的上传
+    function handleWebUpload(fileInfoList) {
+      // 延迟处理，让用户看到状态提示
+      setTimeout(() => {
+        printFileInfo(fileInfoList);
+        // 重置上传按钮状态，允许再次上传
+        resetUploadButton();
+      }, 800);
+    }
+    
+    // 打印文件信息
+    function printFileInfo(files) {
+		console.log(files, 'filesaaaaa')
+      // // 创建一个新窗口用于打印
+      // const printWindow = window.open('', '_blank');
+      
+      // // 构建打印内容
+      // let printContent = `
+      //   <!DOCTYPE html>
+      //   <html>
+      //   <head>
+      //     <title>文件信息打印</title>
+      //     <style>
+      //       body { font-family: Arial, sans-serif; padding: 20px; }
+      //       h1 { color: #333; border-bottom: 2px solid #37C2FF; padding-bottom: 10px; }
+      //       .file-item { margin: 15px 0; padding: 10px; border: 1px solid #eee; border-radius: 4px; }
+      //       .file-property { margin: 5px 0; }
+      //       .label { font-weight: bold; color: #555; }
+      //     </style>
+      //   </head>
+      //   <body>
+      //     <h1>上传文件信息</h1>
+      //     <p>共 ${files.length} 个文件</p>
+      //     <div class="file-list">
+      // `;
+      
+      // // 添加每个文件的信息
+      // files.forEach((file, index) => {
+      //   printContent += `
+      //     <div class="file-item">
+      //       <div class="file-property"><span class="label">文件 ${index + 1}：</span> ${file.name}</div>
+      //       <div class="file-property"><span class="label">类型：</span> ${file.type || '未知'}</div>
+      //       <div class="file-property"><span class="label">大小：</span> ${formatFileSize(file.size)}</div>
+      //       <div class="file-property"><span class="label">修改时间：</span> ${new Date(file.lastModified).toLocaleString()}</div>
+      //     </div>
+      //   `;
+      // });
+      
+      // printContent += `
+      //     </div>
+      //   </body>
+      //   </html>
+      // `;
+      
+      // // 写入内容并打印
+      // printWindow.document.write(printContent);
+      // printWindow.document.close();
+      // printWindow.focus();
+      
+      // // 触发打印
+      // setTimeout(() => {
+      //   printWindow.print();
+      // }, 300);
+    }
+    
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // 重置上传按钮状态
+    function resetUploadButton() {
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '<span>📤</span> 选择并上传文件';
+      statusMessage.className = 'status-message';
+    }
+    
+    // 初始化微信小程序环境检测
+    function initWechatMiniProgram() {
+      if (typeof wx !== 'undefined' && wx.miniProgram) {
+        wx.miniProgram.getEnv((res) => {
+          if (res.miniprogram) {
+            console.log('当前在微信小程序环境');
+          }
+        });
+      }
+    }
+    
+    // 页面加载完成后初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      initWechatMiniProgram();
+      updateFileSelectionMode();
+    });
+  </script>
+</body>
+</html>

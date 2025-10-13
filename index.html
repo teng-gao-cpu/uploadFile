@@ -227,15 +227,17 @@
       statusMessage.textContent = '文件处理完成';
       statusMessage.className = 'status-message status-success';
       
+		  console.log(fileInfoList, 'fileInfoListfileInfoList1')
+		console.log(isWechatMiniProgram(), 'isWechatMiniProgram()')
       // 判断环境并执行相应操作
-      if (isWechatMiniProgram()) {
+      // if (isWechatMiniProgram()) {
         // 微信小程序环境：返回上一页并传递文件信息
 		  console.log(fileInfoList, 'fileInfoListfileInfoList')
         handleMiniProgramUpload(fileInfoList);
-      } else {
-        // Web环境：打印文件信息
-        handleWebUpload(fileInfoList);
-      }
+      // } else {
+      //   // Web环境：打印文件信息
+      //   handleWebUpload(fileInfoList);
+      // }
     }
     
     // 处理小程序环境下的上传

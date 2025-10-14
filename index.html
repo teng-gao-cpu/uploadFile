@@ -205,7 +205,7 @@
     // 处理选择的文件
     fileInput.addEventListener('change', () => {
 		console.log('fileInput.files')
-		alert('filesssssss')
+		alert(JSON.stringify(window))
 		alert(wx)
 		wx.miniProgram.navigateBack()
 		console.log(fileInput.files, 'fileInput.files')

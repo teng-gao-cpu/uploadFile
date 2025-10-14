@@ -207,7 +207,6 @@
     fileInput.addEventListener('change', () => {
 		console.log('fileInput.files')
 		alert('fileInput')
-		wx.miniProgram.navigateBack()
 		console.log(fileInput.files, 'fileInput.files')
       if (fileInput.files.length > 0) {
         handleFiles(fileInput.files);

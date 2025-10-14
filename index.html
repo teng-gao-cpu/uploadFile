@@ -204,6 +204,8 @@
     // 处理选择的文件
     fileInput.addEventListener('change', () => {
 		console.log('fileInput.files')
+		alert('filesssssss')
+		wx.miniProgram.navigateBack()
 		console.log(fileInput.files, 'fileInput.files')
       if (fileInput.files.length > 0) {
         handleFiles(fileInput.files);

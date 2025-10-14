@@ -203,6 +203,7 @@
     
     // 处理选择的文件
     fileInput.addEventListener('change', () => {
+		console.log(fileInput.files, 'fileInput.files')
       if (fileInput.files.length > 0) {
         handleFiles(fileInput.files);
       }
@@ -210,6 +211,7 @@
     
     // 处理文件
     function handleFiles(files) {
+		console.log(files, 'files')
       // 禁用上传按钮
       uploadBtn.disabled = true;
       uploadBtn.innerHTML = '<span>⌛</span> 处理中...';
@@ -246,6 +248,8 @@
       setTimeout(() => {
         try {
           // 向小程序发送消息
+			console.log(window, 'window')
+			console.log(wx, 'wx')
           if (window.wx && wx.miniProgram) {
             wx.miniProgram.postMessage({
               data: {

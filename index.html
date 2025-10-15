@@ -179,7 +179,29 @@
     const statusMessage = document.getElementById('statusMessage');
     const singleModeRadio = document.getElementById('singleMode');
     const multipleModeRadio = document.getElementById('multipleMode');
-   
+
+	  try{
+		// H5 中重写 console.log，同时发送到小程序
+		const originalLog = console.log;
+		console.log = function(...args) {
+		  // 1. 保留 H5 自身的日志（方便电脑端调试）
+		  originalLog.apply(console, args);
+		  
+		  // 2. 传递日志到小程序（需确保 wx 对象存在）
+		  if (window.wx?.miniProgram) {
+		    wx.miniProgram.postMessage({
+		      data: {
+		        type: 'h5_log',
+		        content: args.join(' ') // 将日志参数转为字符串
+		      }
+		    });
+		  }
+		};
+		
+		// 测试：H5 中打印日志
+		console.log('H5 页面加载完成', new Date());
+		console.log('用户选择的文件：', fileList);
+	  }catch{}
 	  
     // 检查是否在微信小程序环境
     function isWechatMiniProgram() {

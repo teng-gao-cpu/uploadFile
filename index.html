@@ -198,9 +198,6 @@
 		  }
 		};
 		
-		// 测试：H5 中打印日志
-		console.log('H5 页面加载完成', new Date());
-		console.log('用户选择的文件：', fileList);
 	  }catch{}
 	  
     // 检查是否在微信小程序环境
@@ -227,9 +224,6 @@
     
     // 处理选择的文件
     fileInput.addEventListener('change', () => {
-		console.log('fileInput.files')
-		alert('fileInput')
-		console.log(fileInput.files, 'fileInput.files')
       if (fileInput.files.length > 0) {
         handleFiles(fileInput.files);
       }
@@ -237,8 +231,6 @@
     
     // 处理文件
     function handleFiles(files) {
-		console.log('files')
-		console.log(files, 'files')
       // 禁用上传按钮
       uploadBtn.disabled = true;
       uploadBtn.innerHTML = '<span>⌛</span> 处理中...';
@@ -255,21 +247,14 @@
       // 显示成功消息
       statusMessage.textContent = '文件处理完成';
       statusMessage.className = 'status-message status-success';
-      
-		  console.log('fileInfoListfileInfoList1')
-		  console.log(fileInfoList, 'fileInfoListfileInfoList1')
-		console.log('isWechatMiniProgram()')
-		console.log(isWechatMiniProgram(), 'isWechatMiniProgram()')
       // 判断环境并执行相应操作
-      // if (isWechatMiniProgram()) {
+      if (isWechatMiniProgram()) {
         // 微信小程序环境：返回上一页并传递文件信息
-		  console.log('fileInfoListfileInfoList')
-		  console.log(fileInfoList, 'fileInfoListfileInfoList')
         handleMiniProgramUpload(fileInfoList);
-      // } else {
-      //   // Web环境：打印文件信息
-      //   handleWebUpload(fileInfoList);
-      // }
+      } else {
+        // Web环境：打印文件信息
+        handleWebUpload(fileInfoList);
+      }
     }
     
     // 处理小程序环境下的上传

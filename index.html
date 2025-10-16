@@ -6,7 +6,7 @@
 	<script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
   <title>文件上传</title>
   <style>
-    /* 基础样式 */
+    /* 基础样式保持不变 */
     * {
       margin: 0;
       padding: 0;
@@ -33,7 +33,6 @@
       padding: 24px;
     }
     
-    /* 标题样式 */
     .title-area {
       text-align: center;
       margin-bottom: 32px;
@@ -51,7 +50,6 @@
       color: #666;
     }
     
-    /* 选择模式样式 */
     .select-mode {
       display: flex;
       justify-content: space-between;
@@ -78,7 +76,6 @@
       cursor: pointer;
     }
     
-    /* 上传按钮样式 */
     .upload-btn {
       width: 100%;
       padding: 12px;
@@ -109,7 +106,6 @@
       margin-right: 8px;
     }
     
-    /* 状态消息样式 */
     .status-message {
       display: none;
       text-align: center;
@@ -133,7 +129,6 @@
       border: 1px solid #ffd2d2;
     }
     
-    /* 隐藏的文件输入 */
     #fileInput {
       display: none;
     }
@@ -142,13 +137,11 @@
 
 <body>
   <div class="container">
-    <!-- 标题区域 -->
     <div class="title-area">
       <h1 class="title">文件上传</h1>
-      <p class="subtitle">支持所有类型文件的上传</p>
+      <p class="subtitle">支持所有类型文件的上传（含Base64转换）</p>
     </div>
     
-    <!-- 选择模式 -->
     <div class="select-mode">
       <div class="mode-option">
         <input type="radio" name="selectMode" id="singleMode" value="single" checked>
@@ -160,15 +153,10 @@
       </div>
     </div>
     
-    <!-- 隐藏的文件输入 -->
     <input type="file" id="fileInput" accept="*/*">
-    
-    <!-- 上传按钮 -->
     <button id="uploadBtn" class="upload-btn">
       <span>📤</span> 选择并上传文件
     </button>
-    
-    <!-- 状态提示 -->
     <div id="statusMessage" class="status-message"></div>
   </div>
 
@@ -180,26 +168,25 @@
     const singleModeRadio = document.getElementById('singleMode');
     const multipleModeRadio = document.getElementById('multipleMode');
 
-	  try{
-		// H5 中重写 console.log，同时发送到小程序
-		const originalLog = console.log;
-		console.log = function(...args) {
-		  // 1. 保留 H5 自身的日志（方便电脑端调试）
-		  originalLog.apply(console, args);
-		  
-		  // 2. 传递日志到小程序（需确保 wx 对象存在）
-		  if (window.wx?.miniProgram) {
-		    wx.miniProgram.postMessage({
-		      data: {
-		        type: 'h5_log',
-		        content: args.join(' ') // 将日志参数转为字符串
-		      }
-		    });
-		  }
-		};
-		
-	  }catch{}
-	  
+    // 核心配置：微信小程序Base64分片大小（默认200KB，可根据需求调整）
+    const WX_MINIPROGRAM_CHUNK_SIZE = 200 * 1024; // 200KB
+
+    try{
+      // H5 日志同步到小程序
+      const originalLog = console.log;
+      console.log = function(...args) {
+        originalLog.apply(console, args);
+        if (window.wx?.miniProgram) {
+          wx.miniProgram.postMessage({
+            data: {
+              type: 'h5_log',
+              content: args.join(' ')
+            }
+          });
+        }
+      };
+    }catch{}
+    
     // 检查是否在微信小程序环境
     function isWechatMiniProgram() {
       const userAgent = window.navigator.userAgent.toLowerCase();
@@ -222,138 +209,182 @@
       fileInput.click();
     });
     
-    // 处理选择的文件
-    fileInput.addEventListener('change', () => {
+    // 处理选择的文件（新增async，支持await调用Base64转换）
+    fileInput.addEventListener('change', async () => {
       if (fileInput.files.length > 0) {
-        handleFiles(fileInput.files);
+        await handleFiles(fileInput.files); // 改为异步，等待Base64转换完成
       }
     });
     
-    // 处理文件
-    function handleFiles(files) {
-      // 禁用上传按钮
+    // 处理文件（核心修改：加入Base64转换）
+    async function handleFiles(files) {
       uploadBtn.disabled = true;
       uploadBtn.innerHTML = '<span>⌛</span> 处理中...';
       
-      // 转换文件信息为可传输格式
-      const fileInfoList = Array.from(files).map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        lastModified: file.lastModified,
-        lastModifiedDate: new Date(file.lastModified).toISOString()
-      }));
-      
-      // 显示成功消息
-      statusMessage.textContent = '文件处理完成';
-      statusMessage.className = 'status-message status-success';
-      // 判断环境并执行相应操作
-      if (isWechatMiniProgram()) {
-        // 微信小程序环境：返回上一页并传递文件信息
-        handleMiniProgramUpload(fileInfoList);
-      } else {
-        // Web环境：打印文件信息
-        handleWebUpload(fileInfoList);
+      try {
+        // 1. 将文件转为Base64格式（调用完善后的转换函数）
+        const fileInfoList = await getFilesBase64(files);
+        if (fileInfoList.length === 0) {
+          throw new Error('文件转换失败，请重试');
+        }
+        
+        // 2. 显示成功消息
+        statusMessage.textContent = `成功转换 ${fileInfoList.length} 个文件`;
+        statusMessage.className = 'status-message status-success';
+        
+        // 3. 按环境处理
+        if (isWechatMiniProgram()) {
+          await handleMiniProgramUpload(fileInfoList); // 小程序分片传输
+        } else {
+          handleWebUpload(fileInfoList); // Web端打印信息
+        }
+      } catch (e) {
+        // 错误处理
+        console.error('文件处理失败:', e);
+        statusMessage.textContent = e.message || '处理失败，请重试';
+        statusMessage.className = 'status-message status-error';
+        resetUploadButton();
       }
     }
     
-    // 处理小程序环境下的上传
-    function handleMiniProgramUpload(fileInfoList) {
-      // 延迟处理，让用户看到状态提示
-      setTimeout(() => {
-        try {
-          // 向小程序发送消息
-          if (window.wx && wx.miniProgram) {
+    // 处理小程序环境下的上传（核心修改：分片传输大Base64数据）
+    async function handleMiniProgramUpload(fileInfoList) {
+      if (!window.wx || !wx.miniProgram) {
+        throw new Error('小程序环境异常');
+      }
+      
+      // 延迟显示，提升用户体验
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      try {
+        // 遍历每个文件，判断是否需要分片
+        for (const file of fileInfoList) {
+          const base64Data = file.base64;
+          // 移除Base64前缀（如"data:image/png;base64,"），仅保留原始编码
+          const pureBase64 = base64Data.split(',')[1] || base64Data;
+          
+          // 判断文件大小：超过分片阈值则分片，否则直接传输
+          if (pureBase64.length > WX_MINIPROGRAM_CHUNK_SIZE) {
+            // 分片逻辑
+            const totalChunks = Math.ceil(pureBase64.length / WX_MINIPROGRAM_CHUNK_SIZE);
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+              // 计算当前分片的起始和结束位置
+              const start = chunkIndex * WX_MINIPROGRAM_CHUNK_SIZE;
+              const end = Math.min((chunkIndex + 1) * WX_MINIPROGRAM_CHUNK_SIZE, pureBase64.length);
+              const chunkData = pureBase64.slice(start, end);
+              
+              // 发送分片消息（含文件标识、分片索引、总片数）
+              wx.miniProgram.postMessage({
+                data: {
+                  type: 'fileChunk', // 分片消息类型
+                  fileId: file.name + '_' + file.lastModified, // 唯一标识文件（避免同名冲突）
+                  chunkIndex: chunkIndex, // 当前分片索引（从0开始）
+                  totalChunks: totalChunks, // 总分片数
+                  chunkData: chunkData, // 当前分片的Base64数据
+                  fileMeta: { // 文件元信息（名称、大小、类型）
+                    name: file.name,
+                    size: file.size,
+                    type: file.type
+                  }
+                }
+              });
+            }
+          } else {
+            // 小文件：直接传输完整Base64
             wx.miniProgram.postMessage({
               data: {
-                type: 'fileUploadComplete',
-                files: fileInfoList
+                type: 'fileComplete', // 完整文件消息类型
+                file: {
+                  ...file,
+                  base64: pureBase64 // 移除前缀后的纯净Base64
+                }
               }
             });
-            
-            // 返回上一页
-            wx.miniProgram.navigateBack({
-              delta: 1
-            });
-          } else {
-            // 兼容处理
-            history.back();
           }
-        } catch (e) {
-          console.error('小程序通信失败:', e);
-          statusMessage.textContent = '处理失败，请重试';
-          statusMessage.className = 'status-message status-error';
-          resetUploadButton();
         }
-      }, 800);
+        
+        // 所有文件传输完成后，发送结束标识
+        wx.miniProgram.postMessage({
+          data: {
+            type: 'allFilesSent', // 全部完成标识
+            totalFiles: fileInfoList.length
+          }
+        });
+        
+        // 返回小程序上一页
+        wx.miniProgram.navigateBack({ delta: 1 });
+      } catch (e) {
+        throw new Error('小程序传输失败: ' + e.message);
+      }
     }
     
-    // 处理Web环境下的上传
+    // 处理Web环境下的上传（修改：打印包含Base64的文件信息）
     function handleWebUpload(fileInfoList) {
       // 延迟处理，让用户看到状态提示
       setTimeout(() => {
         printFileInfo(fileInfoList);
-        // 重置上传按钮状态，允许再次上传
         resetUploadButton();
       }, 800);
     }
     
-    // 打印文件信息
+    // 打印文件信息（新增：显示Base64摘要，避免日志过长）
     function printFileInfo(files) {
-		console.log(files, 'filesaaaaa')
-      // // 创建一个新窗口用于打印
-      // const printWindow = window.open('', '_blank');
+      console.log('=== Web端上传文件信息 ===', files);
       
-      // // 构建打印内容
-      // let printContent = `
-      //   <!DOCTYPE html>
-      //   <html>
-      //   <head>
-      //     <title>文件信息打印</title>
-      //     <style>
-      //       body { font-family: Arial, sans-serif; padding: 20px; }
-      //       h1 { color: #333; border-bottom: 2px solid #37C2FF; padding-bottom: 10px; }
-      //       .file-item { margin: 15px 0; padding: 10px; border: 1px solid #eee; border-radius: 4px; }
-      //       .file-property { margin: 5px 0; }
-      //       .label { font-weight: bold; color: #555; }
-      //     </style>
-      //   </head>
-      //   <body>
-      //     <h1>上传文件信息</h1>
-      //     <p>共 ${files.length} 个文件</p>
-      //     <div class="file-list">
-      // `;
+      // // 构建简化的打印内容（显示Base64前50个字符，避免日志臃肿）
+      // const printData = files.map(file => ({
+      //   name: file.name,
+      //   size: formatFileSize(file.size),
+      //   type: file.type,
+      //   base64Preview: file.base64.slice(0, 50) + '...' // Base64预览（前50字符）
+      // }));
       
-      // // 添加每个文件的信息
-      // files.forEach((file, index) => {
-      //   printContent += `
-      //     <div class="file-item">
-      //       <div class="file-property"><span class="label">文件 ${index + 1}：</span> ${file.name}</div>
-      //       <div class="file-property"><span class="label">类型：</span> ${file.type || '未知'}</div>
-      //       <div class="file-property"><span class="label">大小：</span> ${formatFileSize(file.size)}</div>
-      //       <div class="file-property"><span class="label">修改时间：</span> ${new Date(file.lastModified).toLocaleString()}</div>
-      //     </div>
-      //   `;
-      // });
+      // // 打印简化信息，完整信息可查看上方files变量
+      // console.log('=== 简化文件信息（Base64预览） ===', printData);
       
-      // printContent += `
-      //     </div>
-      //   </body>
-      //   </html>
-      // `;
-      
-      // // 写入内容并打印
-      // printWindow.document.write(printContent);
-      // printWindow.document.close();
-      // printWindow.focus();
-      
-      // // 触发打印
-      // setTimeout(() => {
-      //   printWindow.print();
-      // }, 300);
+      // 可选：弹出提示框告知用户
+      // alert(`Web端已完成文件转换，共 ${files.length} 个文件，详情见控制台日志`);
     }
     
-    // 格式化文件大小
+    // 完善文件转Base64函数（修复原代码bug，确保正确转换）
+    async function getFilesBase64(files) {
+      const fileArray = Array.from(files); // 将FileList转为数组
+      if (fileArray.length === 0) return [];
+      
+      // 遍历文件，并行转换为Base64
+      const filePromises = fileArray.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          
+          // 转换成功：返回包含Base64的文件信息
+          reader.onload = (e) => {
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              lastModified: file.lastModified,
+              lastModifiedDate: new Date(file.lastModified).toISOString(),
+              base64: e.target.result // 完整Base64（含前缀，如"data:image/png;base64,"）
+            });
+          };
+          
+          // 转换失败：打印错误并返回null
+          reader.onerror = () => {
+            console.error(`文件转换失败: ${file.name}`);
+            resolve(null);
+          };
+          
+          // 以DataURL格式读取文件（生成Base64）
+          reader.readAsDataURL(file);
+        });
+      });
+      
+      // 等待所有转换完成，过滤失败的文件
+      const results = await Promise.all(filePromises);
+      return results.filter(Boolean); // 移除null（转换失败的文件）
+    }
+    
+    // 格式化文件大小（保持不变）
     function formatFileSize(bytes) {
       if (bytes === 0) return '0 Bytes';
       
@@ -364,25 +395,25 @@
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
     
-    // 重置上传按钮状态
+    // 重置上传按钮状态（保持不变）
     function resetUploadButton() {
       uploadBtn.disabled = false;
       uploadBtn.innerHTML = '<span>📤</span> 选择并上传文件';
       statusMessage.className = 'status-message';
     }
     
-    // 初始化微信小程序环境检测
+    // 初始化微信小程序环境检测（保持不变）
     function initWechatMiniProgram() {
       if (typeof wx !== 'undefined' && wx.miniProgram) {
         wx.miniProgram.getEnv((res) => {
           if (res.miniprogram) {
-            console.log('当前在微信小程序环境');
+            console.log('当前在微信小程序环境，Base64分片大小：', WX_MINIPROGRAM_CHUNK_SIZE, '字节');
           }
         });
       }
     }
     
-    // 页面加载完成后初始化
+    // 页面加载完成后初始化（保持不变）
     window.addEventListener('DOMContentLoaded', () => {
       initWechatMiniProgram();
       updateFileSelectionMode();

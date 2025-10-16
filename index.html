@@ -263,8 +263,6 @@
       setTimeout(() => {
         try {
           // 向小程序发送消息
-			console.log(window, 'window')
-			console.log(wx, 'wx')
           if (window.wx && wx.miniProgram) {
             wx.miniProgram.postMessage({
               data: {
